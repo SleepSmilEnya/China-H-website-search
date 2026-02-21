@@ -221,7 +221,7 @@ async fn start_scan(app: AppHandle, state: State<'_, Arc<Mutex<ScannerState>>>) 
                                     title,
                                 };
                                 let _ = app.emit("found-domain", found.clone());
-                                let mut state = state_clone.lock().await;
+                                let state = state_clone.lock().await;
                                 state.found_domains.lock().await.push(found);
                             }
                         }
@@ -268,7 +268,7 @@ async fn resume_scan(state: State<'_, Arc<Mutex<ScannerState>>>) -> Result<(), S
 
 #[tauri::command]
 async fn stop_scan(state: State<'_, Arc<Mutex<ScannerState>>>) -> Result<(), String> {
-    let mut state = state.lock().await;
+    let state = state.lock().await;
     state.running.store(false, Ordering::SeqCst);
     state.paused.store(false, Ordering::SeqCst);
     Ok(())
@@ -276,7 +276,7 @@ async fn stop_scan(state: State<'_, Arc<Mutex<ScannerState>>>) -> Result<(), Str
 
 #[tauri::command]
 async fn reset_scan(state: State<'_, Arc<Mutex<ScannerState>>>) -> Result<(), String> {
-    let mut state = state.lock().await;
+    let state = state.lock().await;
     state.running.store(false, Ordering::SeqCst);
     state.paused.store(false, Ordering::SeqCst);
     state.current_index.store(0, Ordering::SeqCst);

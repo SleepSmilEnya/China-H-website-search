@@ -23,6 +23,16 @@ const isRunning = ref(false);
 const isPaused = ref(false);
 const concurrency = ref(20);
 const searchKeyword = ref("");
+const serverUrl = ref("");
+
+async function loadServerInfo() {
+  try {
+    const ip = await invoke<string>("get_local_ip");
+    serverUrl.value = `http://${ip}:8765`;
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 const filteredDomains = computed(() => {
   const validDomains = foundDomains.value.filter(item => 
@@ -110,6 +120,7 @@ function formatNumber(num: number): string {
 }
 
 onMounted(async () => {
+  loadServerInfo();
   await loadStatus();
 
   unlistenProgress = await listen<ScanProgress>("scan-progress", (event) => {
@@ -144,6 +155,9 @@ onUnmounted(() => {
     <header class="header">
       <h1>China H Website Search</h1>
       <p class="subtitle">Scan .cc domains from aaaa.cc to zzzz.cc</p>
+      <p v-if="serverUrl" class="server-url">
+        手机访问: <a :href="serverUrl" target="_blank">{{ serverUrl }}</a>
+      </p>
     </header>
 
     <div class="control-panel">
@@ -274,6 +288,21 @@ body {
 .subtitle {
   font-size: 14px;
   color: #8e8e8e;
+}
+
+.server-url {
+  font-size: 12px;
+  color: #0095f6;
+  margin-top: 8px;
+}
+
+.server-url a {
+  color: #0095f6;
+  text-decoration: none;
+}
+
+.server-url a:hover {
+  text-decoration: underline;
 }
 
 .control-panel {

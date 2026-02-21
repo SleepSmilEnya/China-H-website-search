@@ -6,6 +6,8 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::Mutex;
 
+const HTTP_PORT: u16 = 8765;
+
 static DOMAINS: Lazy<Vec<String>> = Lazy::new(|| {
     let mut domains = Vec::new();
     for a in b'a'..=b'z' {
@@ -298,9 +300,107 @@ async fn get_status(state: State<'_, Arc<Mutex<ScannerState>>>) -> Result<ScanPr
     Ok(result)
 }
 
+#[tauri::command]
+fn get_server_url() -> String {
+    format!("http://localhost:{}", HTTP_PORT)
+}
+
+#[tauri::command]
+fn get_local_ip() -> String {
+    use std::net::UdpSocket;
+    UdpSocket::bind("0.0.0.0:0")
+        .and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr()))
+        .map(|addr| addr.ip().to_string())
+        .unwrap_or_else(|_| "127.0.0.1".to_string())
+}
+
+fn start_http_server(state: Arc<Mutex<ScannerState>>) {
+    std::thread::spawn(move || {
+        let server = match tiny_http::Server::http(format!("0.0.0.0:{}", HTTP_PORT)) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Failed to start HTTP server: {}", e);
+                return;
+            }
+        };
+        println!("HTTP server started at http://0.0.0.0:{}", HTTP_PORT);
+        
+        for request in server.incoming_requests() {
+            let state_clone = state.clone();
+            
+            let response = match request.url() {
+                "/api/domains" => {
+                    let domains = tokio::runtime::Runtime::new()
+                        .unwrap()
+                        .block_on(async {
+                            let state = state_clone.lock().await;
+                            let domains = state.found_domains.lock().await.clone();
+                            domains
+                        });
+                    let json = serde_json::to_string(&domains).unwrap_or_default();
+                    tiny_http::Response::from_string(json)
+                        .with_header(
+                            tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap()
+                        )
+                },
+                "/" | "/index.html" => {
+                    let html = r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>China H Website Search - Mobile View</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 16px; background: #f5f5f5; }
+        h1 { font-size: 18px; margin-bottom: 12px; color: #262626; }
+        .count { font-size: 14px; color: #666; margin-bottom: 12px; }
+        .domain { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; }
+        .domain-name { font-size: 14px; color: #0095f6; font-weight: 500; }
+        .domain-title { font-size: 12px; color: #666; margin-top: 4px; }
+        a { text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>China H Website Search</h1>
+    <div class="count" id="count">Loading...</div>
+    <div id="list"></div>
+    <script>
+        fetch('/api/domains')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('count').textContent = `Found: ${data.length} domains`;
+                document.getElementById('list').innerHTML = data.map(d => 
+                    `<a href="https://${d.domain}" target="_blank"><div class="domain">
+                        <div class="domain-name">${d.domain}</div>
+                        <div class="domain-title">${d.title || 'No title'}</div>
+                    </div></a>`
+                ).join('');
+            });
+    </script>
+</body>
+</html>"#;
+                    tiny_http::Response::from_string(html)
+                        .with_header(
+                            tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap()
+                        )
+                },
+                _ => {
+                    tiny_http::Response::from_string("Not Found")
+                        .with_status_code(404)
+                }
+            };
+            
+            let _ = request.respond(response);
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let scanner_state = Arc::new(Mutex::new(ScannerState::default()));
+    
+    start_http_server(scanner_state.clone());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -312,7 +412,9 @@ pub fn run() {
             stop_scan,
             reset_scan,
             get_status,
-            set_concurrency
+            set_concurrency,
+            get_server_url,
+            get_local_ip
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

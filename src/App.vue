@@ -93,16 +93,6 @@ async function resumeScan() {
   }
 }
 
-async function stopScan() {
-  try {
-    await invoke("stop_scan");
-    isRunning.value = false;
-    isPaused.value = false;
-  } catch (e) {
-    console.error(e);
-  }
-}
-
 async function resetScan() {
   try {
     await invoke("reset_scan");
@@ -165,7 +155,7 @@ onUnmounted(() => {
         <div class="progress-bar" :style="{ width: (current / total * 100) + '%' }"></div>
       </div>
       <div class="concurrency-control">
-        <label for="concurrency">并发数 (1-200):</label>
+        <label for="concurrency">并发数:</label>
         <input 
           type="number" 
           id="concurrency" 
@@ -196,12 +186,6 @@ onUnmounted(() => {
           <path d="M8 5v14l11-7z"/>
         </svg>
         Resume
-      </button>
-      <button v-if="isRunning" @click="stopScan" class="btn btn-danger">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M6 6h12v12H6z"/>
-        </svg>
-        Stop
       </button>
       <button @click="resetScan" class="btn btn-secondary">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

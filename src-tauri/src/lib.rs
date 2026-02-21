@@ -142,8 +142,8 @@ fn is_error_page(html: &str, title: &str) -> bool {
 
 #[tauri::command]
 async fn set_concurrency(state: State<'_, Arc<Mutex<ScannerState>>>, concurrency: usize) -> Result<(), String> {
-    if concurrency < 1 || concurrency > 200 {
-        return Err("Concurrency must be between 1 and 200".to_string());
+    if concurrency < 1 {
+        return Err("Concurrency must be at least 1".to_string());
     }
     let state = state.lock().await;
     state.concurrency.store(concurrency, Ordering::SeqCst);

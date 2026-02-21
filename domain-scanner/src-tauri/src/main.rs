@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    domain_scanner_lib::run()
+    china_h_website_search_lib::run()
 }

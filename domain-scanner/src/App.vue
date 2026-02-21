@@ -152,7 +152,7 @@ onUnmounted(() => {
 <template>
   <div class="app">
     <header class="header">
-      <h1>Domain Scanner</h1>
+      <h1>China H Website Search</h1>
       <p class="subtitle">Scan .cc domains from aaaa.cc to zzzz.cc</p>
     </header>
 
